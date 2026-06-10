@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ScheduleData } from "@/models/schedule";
+import { ScheduleData } from "@/models/schedules";
 
 type PlayableTable = {
   hanchanId: number;
