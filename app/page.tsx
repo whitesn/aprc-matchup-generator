@@ -194,26 +194,28 @@ export default function Home() {
 
       <div className="mb-8">Playable Tables: {playableTables.length}</div>
 
-      <h2 className="text-xl font-semibold mb-4">Playable Tables</h2>
+      <details className="mb-8" open>
+        <summary className="text-xl font-semibold cursor-pointer mb-4">
+          Playable Tables ({playableTables.length})
+        </summary>
 
-      <div className="space-y-3 mb-10">
-        {playableTables.map((table) => (
-          <div
-            key={`${table.hanchanId}-${table.tableNo}`}
-            className="border rounded p-4"
-          >
-            <div className="font-semibold">
-              Hanchan {table.hanchanId}
-              {" - "}
-              Table {table.tableNo}
-            </div>
+        <div className="space-y-3 mt-4">
+          {playableTables.map((table) => (
+            <div
+              key={`${table.hanchanId}-${table.tableNo}`}
+              className="border rounded p-4"
+            >
+              <div className="font-semibold">
+                Hanchan {table.hanchanId} - Table {table.tableNo}
+              </div>
 
-            <div className="mt-2">
-              {table.players.map((id) => participantMap[id]).join(", ")}
+              <div className="mt-2">
+                {table.players.map((id) => participantMap[id]).join(", ")}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </details>
 
       <h2 className="text-xl font-semibold mb-4">Concurrent Sets</h2>
 
