@@ -162,7 +162,6 @@ export default function Home() {
   return (
     <main className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">APRC Matchup Generator</h1>
-
       <h2 className="text-xl font-semibold mb-4">Available Players</h2>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-8">
@@ -188,6 +187,15 @@ export default function Home() {
             {player.name}
           </label>
         ))}
+      </div>
+
+      <div className="flex gap-2 mb-4 justify-end">
+        <button
+          onClick={() => setSelectedPlayers([])}
+          className="px-4 py-2 border rounded bg-red-600 hover:bg-gray-100"
+        >
+          ❌ Clear Selection
+        </button>
       </div>
 
       <div className="mb-4">Selected Players: {selectedPlayers.length}</div>
