@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ScheduleData } from "@/models/schedules";
+import { ScheduleData, CompletedData } from "@/models/schedules";
 
 type PlayableTable = {
   hanchanId: number;
@@ -10,40 +10,71 @@ type PlayableTable = {
 };
 
 export default function Home() {
-  const [data, setData] = useState<ScheduleData | null>(null);
+  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
+
+  const [completedData, setCompletedData] = useState<CompletedData | null>(
+    null,
+  );
+
   const [selectedPlayers, setSelectedPlayers] = useState<number[]>([]);
 
   useEffect(() => {
-    fetch("/schedules.json")
-      .then((res) => res.json())
-      .then((json: ScheduleData) => {
-        setData(json);
-      });
+    Promise.all([
+      fetch("/schedules.json").then((r) => r.json()),
+      fetch("/completed.json").then((r) => r.json()),
+    ]).then(([schedule, completed]) => {
+      setScheduleData(schedule);
+      setCompletedData(completed);
+    });
   }, []);
 
   const participantMap = useMemo(() => {
-    if (!data) return {};
+    if (!scheduleData) return {};
 
     return Object.fromEntries(
-      data.participants.map((p) => [p.id, p.name]),
+      scheduleData.participants.map((p) => [p.id, p.name]),
     ) as Record<number, string>;
-  }, [data]);
+  }, [scheduleData]);
+
+  const completedLookup = useMemo(() => {
+    const lookup = new Set<string>();
+
+    if (!completedData) {
+      return lookup;
+    }
+
+    completedData.hanchans.forEach((h) => {
+      h.tables.forEach((tableNo) => {
+        lookup.add(`${h.id}-${tableNo}`);
+      });
+    });
+
+    return lookup;
+  }, [completedData]);
 
   const playableTables = useMemo<PlayableTable[]>(() => {
-    if (!data) return [];
+    if (!scheduleData) return [];
 
-    return data.hanchans.flatMap((hanchan) =>
+    return scheduleData.hanchans.flatMap((hanchan) =>
       hanchan.tables
         .map((table, index) => ({
           hanchanId: hanchan.id,
           tableNo: index + 1,
           players: table,
         }))
-        .filter((table) =>
-          table.players.every((playerId) => selectedPlayers.includes(playerId)),
-        ),
+        .filter((table) => {
+          const playable = table.players.every((playerId) =>
+            selectedPlayers.includes(playerId),
+          );
+
+          const completed = completedLookup.has(
+            `${table.hanchanId}-${table.tableNo}`,
+          );
+
+          return playable && !completed;
+        }),
     );
-  }, [data, selectedPlayers]);
+  }, [scheduleData, selectedPlayers, completedLookup]);
 
   const concurrentSets = useMemo(() => {
     const tablesNeeded = Math.floor(selectedPlayers.length / 4);
@@ -83,26 +114,62 @@ export default function Home() {
 
     backtrack(0, []);
 
-    return results;
-  }, [playableTables, selectedPlayers]);
+    return results.slice(0, 100);
+  }, [playableTables, selectedPlayers.length]);
 
-  if (!data) {
-    return (
-      <main className="p-6">
-        <div>Loading schedules...</div>
-      </main>
-    );
+  const playerMatchCounts = useMemo(() => {
+    if (!scheduleData) return [];
+
+    const counts = new Map<number, number>();
+
+    scheduleData.participants.forEach((p) => {
+      counts.set(p.id, 0);
+    });
+
+    scheduleData.hanchans.forEach((hanchan) => {
+      hanchan.tables.forEach((table, index) => {
+        const tableNo = index + 1;
+
+        const isCompleted = completedLookup.has(`${hanchan.id}-${tableNo}`);
+
+        if (!isCompleted) {
+          return;
+        }
+
+        table.forEach((playerId) => {
+          counts.set(playerId, (counts.get(playerId) ?? 0) + 1);
+        });
+      });
+    });
+
+    return [...counts.entries()]
+      .map(([playerId, matchCount]) => ({
+        playerId,
+        playerName: participantMap[playerId],
+        matchCount,
+      }))
+      .sort(
+        (a, b) =>
+          b.matchCount - a.matchCount ||
+          a.playerName.localeCompare(b.playerName),
+      );
+  }, [scheduleData, completedLookup, participantMap]);
+
+  if (!scheduleData || !completedData) {
+    return <main className="p-6">Loading...</main>;
   }
 
   return (
-    <main className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">APRC Scheduler</h1>
+    <main className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">APRC Matchup Generator</h1>
+
+      <h2 className="text-xl font-semibold mb-4">Available Players</h2>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-8">
-        {data.participants.map((player) => (
+        {scheduleData.participants.map((player) => (
           <label
             key={player.id}
-            className="flex items-center gap-2 border rounded p-2"
+            className="border rounded p-2 flex items-center gap-2"
           >
             <input
               type="checkbox"
@@ -118,62 +185,125 @@ export default function Home() {
               }}
             />
 
-            <span>{player.name}</span>
+            {player.name}
           </label>
         ))}
       </div>
 
-      <div className="mb-6">
-        <strong>Selected Players:</strong> {selectedPlayers.length}
-      </div>
+      <div className="mb-4">Selected Players: {selectedPlayers.length}</div>
 
-      <div className="mb-4">
-        <strong>Playable Tables:</strong> {playableTables.length}
-      </div>
+      <div className="mb-8">Playable Tables: {playableTables.length}</div>
 
-      <div className="mt-10">
-        <h2 className="text-2xl font-bold mb-4">Concurrent Sets</h2>
+      <h2 className="text-xl font-semibold mb-4">Playable Tables</h2>
 
-        <div className="mb-4">Found {concurrentSets.length} possible sets</div>
-
-        <div className="space-y-4">
-          {concurrentSets.map((set, index) => (
-            <div key={index} className="border rounded p-4">
-              <div className="font-semibold mb-2">Set #{index + 1}</div>
-
-              {set.map((table) => (
-                <div key={`${table.hanchanId}-${table.tableNo}`}>
-                  Hanchan {table.hanchanId}
-                  {" - "}
-                  Table {table.tableNo}
-                  {" : "}
-                  {table.players.map((id) => participantMap[id]).join(", ")}
-                </div>
-              ))}
+      <div className="space-y-3 mb-10">
+        {playableTables.map((table) => (
+          <div
+            key={`${table.hanchanId}-${table.tableNo}`}
+            className="border rounded p-4"
+          >
+            <div className="font-semibold">
+              Hanchan {table.hanchanId}
+              {" - "}
+              Table {table.tableNo}
             </div>
-          ))}
-        </div>
 
-        <div className="mt-10"></div>
-        <h2 className="text-2xl font-bold mb-4">Playable Tables</h2>
+            <div className="mt-2">
+              {table.players.map((id) => participantMap[id]).join(", ")}
+            </div>
+          </div>
+        ))}
+      </div>
 
-        <div className="space-y-3">
-          {playableTables.map((table) => (
-            <div
-              key={`${table.hanchanId}-${table.tableNo}`}
-              className="border rounded p-4"
-            >
-              <div className="font-semibold">
-                Hanchan {table.hanchanId} - Table {table.tableNo}
-              </div>
+      <h2 className="text-xl font-semibold mb-4">Concurrent Sets</h2>
 
-              <div className="mt-2">
+      <div className="mb-4">Found {concurrentSets.length} possible sets</div>
+
+      <div className="space-y-4">
+        {concurrentSets.map((set, index) => (
+          <div key={index} className="border rounded p-4">
+            <div className="font-semibold mb-2">Set #{index + 1}</div>
+
+            {set.map((table) => (
+              <div key={`${table.hanchanId}-${table.tableNo}`}>
+                Hanchan {table.hanchanId}
+                {" - "}
+                Table {table.tableNo}
+                {" : "}
                 {table.players.map((id) => participantMap[id]).join(", ")}
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ))}
       </div>
+      <h2 className="text-xl font-semibold mt-12 mb-4">Schedule Overview</h2>
+
+      <div className="overflow-x-auto">
+        <table className="border-collapse border">
+          <thead>
+            <tr>
+              <th className="border p-2">Hanchan</th>
+
+              <th className="border p-2">Table 1</th>
+
+              <th className="border p-2">Table 2</th>
+
+              <th className="border p-2">Table 3</th>
+
+              <th className="border p-2">Table 4</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {scheduleData.hanchans.map((hanchan) => (
+              <tr key={hanchan.id}>
+                <td className="border p-2 font-bold">Hanchan {hanchan.id}</td>
+
+                {hanchan.tables.map((table, index) => {
+                  const tableNo = index + 1;
+
+                  const isCompleted = completedLookup.has(
+                    `${hanchan.id}-${tableNo}`,
+                  );
+
+                  return (
+                    <td
+                      key={tableNo}
+                      className={`border p-2 align-top ${
+                        isCompleted ? "bg-yellow-600" : ""
+                      }`}
+                    >
+                      {table
+                        .map((playerId) => `${participantMap[playerId]}`)
+                        .join(" , ")}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <h2 className="text-xl font-semibold mt-12 mb-4">Player Match Counts</h2>
+
+      <table className="border-collapse border w-full">
+        <thead>
+          <tr>
+            <th className="border p-2 text-left">Player</th>
+            <th className="border p-2 text-left">Match Count</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {playerMatchCounts.map((player) => (
+            <tr key={player.playerId}>
+              <td className="border p-2">{player.playerName}</td>
+
+              <td className="border p-2">{player.matchCount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </main>
   );
 }

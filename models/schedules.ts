@@ -12,3 +12,10 @@ export interface ScheduleData {
   participants: Participant[];
   hanchans: Hanchan[];
 }
+
+export interface CompletedData {
+  hanchans: {
+    id: number;
+    tables: number[];
+  }[];
+}
