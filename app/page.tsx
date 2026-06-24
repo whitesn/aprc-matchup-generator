@@ -76,46 +76,59 @@ export default function Home() {
     );
   }, [scheduleData, selectedPlayers, completedLookup]);
 
-  const concurrentSets = useMemo(() => {
-    const tablesNeeded = Math.floor(selectedPlayers.length / 4);
+  const sessions = useMemo(() => {
+    const remaining = [...playableTables];
 
-    if (tablesNeeded < 2) {
-      return [];
-    }
+    const allSessions: PlayableTable[][] = [];
 
-    const results: PlayableTable[][] = [];
+    while (remaining.length > 0) {
+      let best: PlayableTable[] = [];
 
-    function hasOverlap(currentSet: PlayableTable[], candidate: PlayableTable) {
-      const usedPlayers = new Set(currentSet.flatMap((table) => table.players));
-
-      return candidate.players.some((p) => usedPlayers.has(p));
-    }
-
-    function backtrack(startIndex: number, currentSet: PlayableTable[]) {
-      if (currentSet.length === tablesNeeded) {
-        results.push([...currentSet]);
-        return;
-      }
-
-      for (let i = startIndex; i < playableTables.length; i++) {
-        const table = playableTables[i];
-
-        if (hasOverlap(currentSet, table)) {
-          continue;
+      function dfs(index: number, current: PlayableTable[], used: Set<number>) {
+        if (current.length > best.length) {
+          best = [...current];
         }
 
-        currentSet.push(table);
+        for (let i = index; i < remaining.length; i++) {
+          const table = remaining[i];
 
-        backtrack(i + 1, currentSet);
+          const overlap = table.players.some((p) => used.has(p));
 
-        currentSet.pop();
+          if (overlap) continue;
+
+          const nextUsed = new Set(used);
+
+          table.players.forEach((p) => nextUsed.add(p));
+
+          current.push(table);
+
+          dfs(i + 1, current, nextUsed);
+
+          current.pop();
+        }
+      }
+
+      dfs(0, [], new Set());
+
+      if (best.length === 0) {
+        break;
+      }
+
+      allSessions.push(best);
+
+      const usedKeys = new Set(best.map((t) => `${t.hanchanId}-${t.tableNo}`));
+
+      for (let i = remaining.length - 1; i >= 0; i--) {
+        const key = `${remaining[i].hanchanId}-${remaining[i].tableNo}`;
+
+        if (usedKeys.has(key)) {
+          remaining.splice(i, 1);
+        }
       }
     }
 
-    backtrack(0, []);
-
-    return results.slice(0, 100);
-  }, [playableTables, selectedPlayers.length]);
+    return allSessions;
+  }, [playableTables]);
 
   const playerMatchCounts = useMemo(() => {
     if (!scheduleData) return [];
@@ -202,7 +215,7 @@ export default function Home() {
 
       <div className="mb-8">Playable Tables: {playableTables.length}</div>
 
-      <details className="mb-8" open>
+      <details className="mb-8">
         <summary className="text-xl font-semibold cursor-pointer mb-4">
           Playable Tables ({playableTables.length})
         </summary>
@@ -225,16 +238,19 @@ export default function Home() {
         </div>
       </details>
 
-      <h2 className="text-xl font-semibold mb-4">Concurrent Sets</h2>
-
-      <div className="mb-4">Found {concurrentSets.length} possible sets</div>
+      <h2 className="text-xl font-semibold mb-4">Suggested Sessions</h2>
 
       <div className="space-y-4">
-        {concurrentSets.map((set, index) => (
+        {sessions.map((session, index) => (
           <div key={index} className="border rounded p-4">
-            <div className="font-semibold mb-2">Set #{index + 1}</div>
+            <div className="font-semibold mb-2">
+              Session {index + 1}
+              {" ("}
+              {session.length}
+              {" tables)"}
+            </div>
 
-            {set.map((table) => (
+            {session.map((table) => (
               <div key={`${table.hanchanId}-${table.tableNo}`}>
                 Hanchan {table.hanchanId}
                 {" - "}
@@ -246,6 +262,7 @@ export default function Home() {
           </div>
         ))}
       </div>
+
       <h2 className="text-xl font-semibold mt-12 mb-4">Schedule Overview</h2>
 
       <div className="overflow-x-auto">
