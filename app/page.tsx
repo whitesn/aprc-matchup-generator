@@ -130,13 +130,49 @@ export default function Home() {
     return allSessions;
   }, [playableTables]);
 
-  const playerMatchCounts = useMemo(() => {
-    if (!scheduleData) return [];
+  //   if (!scheduleData) return [];
 
-    const counts = new Map<number, number>();
+  //   const counts = new Map<number, number>();
+
+  //   scheduleData.participants.forEach((p) => {
+  //     counts.set(p.id, 0);
+  //   });
+
+  //   scheduleData.hanchans.forEach((hanchan) => {
+  //     hanchan.tables.forEach((table, index) => {
+  //       const tableNo = index + 1;
+
+  //       const isCompleted = completedLookup.has(`${hanchan.id}-${tableNo}`);
+
+  //       if (!isCompleted) {
+  //         return;
+  //       }
+
+  //       table.forEach((playerId) => {
+  //         counts.set(playerId, (counts.get(playerId) ?? 0) + 1);
+  //       });
+  //     });
+  //   });
+
+  //   return [...counts.entries()]
+  //     .map(([playerId, matchCount]) => ({
+  //       playerId,
+  //       playerName: participantMap[playerId],
+  //       matchCount,
+  //     }))
+  //     .sort(
+  //       (a, b) =>
+  //         b.matchCount - a.matchCount ||
+  //         a.playerName.localeCompare(b.playerName),
+  //     );
+  // }, [scheduleData, completedLookup, participantMap]);
+  const playerMatchCounts = useMemo(() => {
+    if (!scheduleData) return {};
+
+    const counts: Record<number, number> = {};
 
     scheduleData.participants.forEach((p) => {
-      counts.set(p.id, 0);
+      counts[p.id] = 0;
     });
 
     scheduleData.hanchans.forEach((hanchan) => {
@@ -150,23 +186,33 @@ export default function Home() {
         }
 
         table.forEach((playerId) => {
-          counts.set(playerId, (counts.get(playerId) ?? 0) + 1);
+          counts[playerId] = (counts[playerId] || 0) + 1;
         });
       });
     });
 
-    return [...counts.entries()]
-      .map(([playerId, matchCount]) => ({
-        playerId,
-        playerName: participantMap[playerId],
-        matchCount,
-      }))
-      .sort(
-        (a, b) =>
-          b.matchCount - a.matchCount ||
-          a.playerName.localeCompare(b.playerName),
-      );
-  }, [scheduleData, completedLookup, participantMap]);
+    return counts;
+  }, [scheduleData, completedLookup]);
+
+  const totalMatches = useMemo(() => {
+    if (!scheduleData) return {};
+
+    const counts: Record<number, number> = {};
+
+    scheduleData.participants.forEach((p) => {
+      counts[p.id] = 0;
+    });
+
+    scheduleData.hanchans.forEach((hanchan) => {
+      hanchan.tables.forEach((table) => {
+        table.forEach((playerId) => {
+          counts[playerId] = (counts[playerId] || 0) + 1;
+        });
+      });
+    });
+
+    return counts;
+  }, [scheduleData]);
 
   if (!scheduleData || !completedData) {
     return <main className="p-6">Loading...</main>;
@@ -175,7 +221,19 @@ export default function Home() {
   return (
     <main className="p-6 max-w-7xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">APRC Matchup Generator</h1>
-      <h2 className="text-xl font-semibold mb-4">Available Players</h2>
+
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">Available Players</h2>
+
+        <div className="flex mb-4 justify-end">
+          <button
+            onClick={() => setSelectedPlayers([])}
+            className="px-4 py-2 border rounded bg-red-600 cursor-pointer"
+          >
+            ❌ Clear Selection
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-8">
         {scheduleData.participants.map((player) => (
@@ -198,22 +256,22 @@ export default function Home() {
             />
 
             {player.name}
+
+            <span className="text-gray-400 text-sm">
+              {playerMatchCounts[player.id] ?? 0} /{" "}
+              {totalMatches[player.id] ?? 0} (
+              {Math.floor(
+                (playerMatchCounts[player.id] / totalMatches[player.id]) * 100,
+              )}
+              %)
+            </span>
           </label>
         ))}
       </div>
 
-      <div className="flex gap-2 mb-4 justify-end">
-        <button
-          onClick={() => setSelectedPlayers([])}
-          className="px-4 py-2 border rounded bg-red-600 hover:bg-gray-100"
-        >
-          ❌ Clear Selection
-        </button>
-      </div>
-
       <div className="mb-4">Selected Players: {selectedPlayers.length}</div>
 
-      <div className="mb-8">Playable Tables: {playableTables.length}</div>
+      {/* <div className="mb-8">Playable Tables: {playableTables.length}</div>
 
       <details className="mb-8">
         <summary className="text-xl font-semibold cursor-pointer mb-4">
@@ -236,7 +294,7 @@ export default function Home() {
             </div>
           ))}
         </div>
-      </details>
+      </details> */}
 
       <h2 className="text-xl font-semibold mb-4">Suggested Sessions</h2>
 
@@ -311,26 +369,6 @@ export default function Home() {
           </tbody>
         </table>
       </div>
-      <h2 className="text-xl font-semibold mt-12 mb-4">Player Match Counts</h2>
-
-      <table className="border-collapse border w-full">
-        <thead>
-          <tr>
-            <th className="border p-2 text-left">Player</th>
-            <th className="border p-2 text-left">Match Count</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {playerMatchCounts.map((player) => (
-            <tr key={player.playerId}>
-              <td className="border p-2">{player.playerName}</td>
-
-              <td className="border p-2">{player.matchCount}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </main>
   );
 }
