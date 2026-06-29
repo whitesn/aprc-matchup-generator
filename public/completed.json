@@ -7,13 +7,8 @@
     { "id": 5, "tables": [3] },
     { "id": 6, "tables": [3] },
     { "id": 7, "tables": [2, 3] },
-<<<<<<< HEAD
-    { "id": 8, "tables": [1] },
-    { "id": 9, "tables": [] },
-=======
-    { "id": 8, "tables": [1, 2, 3] },
-    { "id": 9, "tables": [4] },
->>>>>>> 18102971f8e3d4896b3a7a93a6f79d1eb31cd3f9
+    { "id": 8, "tables": [1, 2] },
+    { "id": 9, "tables": [3, 4] },
     { "id": 10, "tables": [1, 2] },
     { "id": 11, "tables": [1, 2, 3] },
     { "id": 12, "tables": [2, 4] },
@@ -31,15 +26,9 @@
     { "id": 24, "tables": [3] },
     { "id": 25, "tables": [1] },
     { "id": 26, "tables": [2, 3] },
-<<<<<<< HEAD
-    { "id": 27, "tables": [4] },
-    { "id": 28, "tables": [4] },
-    { "id": 29, "tables": [] },
-=======
     { "id": 27, "tables": [1, 4] },
     { "id": 28, "tables": [1, 4] },
-    { "id": 29, "tables": [2] },
->>>>>>> 18102971f8e3d4896b3a7a93a6f79d1eb31cd3f9
+    { "id": 29, "tables": [] },
     { "id": 30, "tables": [1] },
     { "id": 31, "tables": [] },
     { "id": 32, "tables": [2, 3, 4] },
