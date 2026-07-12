@@ -214,6 +214,23 @@ export default function Home() {
     return counts;
   }, [scheduleData]);
 
+  const remainingSundays = useMemo(() => {
+    const today = new Date();
+    const end = new Date("2026-09-30");
+
+    let count = 0;
+    const d = new Date(today);
+
+    while (d <= end) {
+      if (d.getDay() === 0) {
+        count++;
+      }
+      d.setDate(d.getDate() + 1);
+    }
+
+    return Math.max(count, 1);
+  }, []);
+
   if (!scheduleData || !completedData) {
     return <main className="p-6">Loading...</main>;
   }
@@ -236,65 +253,48 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-8">
-        {scheduleData.participants.map((player) => (
-          <label
-            key={player.id}
-            className="border rounded p-2 flex items-center gap-2"
-          >
-            <input
-              type="checkbox"
-              checked={selectedPlayers.includes(player.id)}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setSelectedPlayers((prev) => [...prev, player.id]);
-                } else {
-                  setSelectedPlayers((prev) =>
-                    prev.filter((id) => id !== player.id),
-                  );
-                }
-              }}
-            />
+        {scheduleData.participants.map((player) => {
+          const completed = playerMatchCounts[player.id] ?? 0;
+          const total = totalMatches[player.id] ?? 0;
 
-            {player.name}
+          const gamesLeft = Math.max(total - completed, 0);
 
-            <span className="text-gray-400 text-sm">
-              {playerMatchCounts[player.id] ?? 0} /{" "}
-              {totalMatches[player.id] ?? 0} (
-              {Math.floor(
-                (playerMatchCounts[player.id] / totalMatches[player.id]) * 100,
-              )}
-              %)
-            </span>
-          </label>
-        ))}
+          const percent = total > 0 ? Math.floor((completed / total) * 100) : 0;
+
+          const gamesPerWeek = (gamesLeft / remainingSundays).toFixed(1);
+
+          return (
+            <label
+              key={player.id}
+              className="border rounded p-2 flex items-center gap-2"
+            >
+              <input
+                type="checkbox"
+                checked={selectedPlayers.includes(player.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedPlayers((prev) => [...prev, player.id]);
+                  } else {
+                    setSelectedPlayers((prev) =>
+                      prev.filter((id) => id !== player.id),
+                    );
+                  }
+                }}
+              />
+
+              {player.name}
+
+              <span className="text-gray-400 text-sm">
+                {completed} / {total} ({percent}%)
+                {" • "}
+                {gamesPerWeek} per wk
+              </span>
+            </label>
+          );
+        })}
       </div>
 
       <div className="mb-4">Selected Players: {selectedPlayers.length}</div>
-
-      {/* <div className="mb-8">Playable Tables: {playableTables.length}</div>
-
-      <details className="mb-8">
-        <summary className="text-xl font-semibold cursor-pointer mb-4">
-          Playable Tables ({playableTables.length})
-        </summary>
-
-        <div className="space-y-3 mt-4">
-          {playableTables.map((table) => (
-            <div
-              key={`${table.hanchanId}-${table.tableNo}`}
-              className="border rounded p-4"
-            >
-              <div className="font-semibold">
-                Hanchan {table.hanchanId} - Table {table.tableNo}
-              </div>
-
-              <div className="mt-2">
-                {table.players.map((id) => participantMap[id]).join(", ")}
-              </div>
-            </div>
-          ))}
-        </div>
-      </details> */}
 
       <h2 className="text-xl font-semibold mb-4">Suggested Sessions</h2>
 
